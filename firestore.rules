@@ -1,0 +1,149 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Health check document for connection validation
+    match /test/connection {
+      allow get: if true;
+    }
+
+    // 2. Reusable Hardened Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'mohammadhabilmia@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // 3. Channel Schema Validation Blueprint
+    function isValidChannel(data) {
+      return data.keys().hasAll([
+          'id',
+          'name',
+          'category',
+          'logo',
+          'streamUrl',
+          'status',
+          'isLive',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'name',
+          'category',
+          'logo',
+          'mobileImage',
+          'streamUrl',
+          'backupStreamUrl',
+          'server3StreamUrl',
+          'status',
+          'isLive',
+          'sortOrder',
+          'deleted',
+          'createdBy',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && data.category is string && data.category.size() >= 1 && data.category.size() <= 50
+        && data.logo is string && data.logo.size() <= 250000
+        && (!('mobileImage' in data) || (data.mobileImage is string && data.mobileImage.size() <= 250000))
+        && data.streamUrl is string && data.streamUrl.size() >= 1 && data.streamUrl.size() <= 2048
+        && (!('backupStreamUrl' in data) || (data.backupStreamUrl is string && data.backupStreamUrl.size() <= 2048))
+        && (!('server3StreamUrl' in data) || (data.server3StreamUrl is string && data.server3StreamUrl.size() <= 2048))
+        && data.status in ['online', 'offline', 'checking']
+        && data.isLive is bool
+        && (!('sortOrder' in data) || data.sortOrder is number)
+        && (!('deleted' in data) || data.deleted is bool)
+        && (!('createdBy' in data) || (data.createdBy is string && data.createdBy.size() <= 128))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // 4. Channels Collection Rules (Public catalog reads, Admin-only verified writes)
+    match /channels/{channelId} {
+      allow get: if isValidId(channelId);
+      allow list: if resource.data.status in ['online', 'offline', 'checking'];
+
+      allow create: if isVerifiedUser()
+        && isValidId(channelId)
+        && isValidChannel(incoming())
+        && incoming().id == channelId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (!('createdBy' in incoming()) || incoming().createdBy == request.auth.uid)
+        && isAdmin();
+
+      allow update: if isVerifiedUser()
+        && isValidId(channelId)
+        && isValidChannel(incoming())
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'name',
+          'category',
+          'logo',
+          'mobileImage',
+          'streamUrl',
+          'backupStreamUrl',
+          'server3StreamUrl',
+          'status',
+          'isLive',
+          'sortOrder',
+          'deleted',
+          'updatedAt'
+        ])
+        && isAdmin();
+
+      allow delete: if isVerifiedUser()
+        && isValidId(channelId)
+        && isAdmin();
+    }
+
+    // 5. Admins Collection Rules
+    match /admins/{adminId} {
+      allow get: if isVerifiedUser() && isValidId(adminId) && (request.auth.uid == adminId || isBootstrappedAdmin());
+      allow list: if isBootstrappedAdmin() && resource.data.email is string;
+      allow create, update: if isBootstrappedAdmin()
+        && isValidId(adminId)
+        && incoming().keys().hasAll(['uid', 'email', 'role'])
+        && incoming().keys().hasOnly(['uid', 'email', 'role'])
+        && isValidId(incoming().uid)
+        && incoming().uid == adminId
+        && incoming().email is string && incoming().email.size() <= 200
+        && incoming().role == 'admin';
+      allow delete: if isBootstrappedAdmin() && isValidId(adminId);
+    }
+  }
+}

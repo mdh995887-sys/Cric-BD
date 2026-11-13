@@ -1,0 +1,130 @@
+{
+  "entities": {
+    "Channel": {
+      "title": "Channel",
+      "description": "A live TV or sports streaming channel with 3-tier server URLs and logos.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique channel identifier.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of the TV channel.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "category": {
+          "type": "string",
+          "description": "Channel category such as Cricket, Football, Sports, News, Entertainment.",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "logo": {
+          "type": "string",
+          "description": "Channel logo URL or compressed base64 image data URI.",
+          "maxLength": 250000
+        },
+        "mobileImage": {
+          "type": "string",
+          "description": "Optional mobile card image URL or compressed base64 data URI.",
+          "maxLength": 250000
+        },
+        "streamUrl": {
+          "type": "string",
+          "description": "Primary Server 1 HLS stream URL.",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "backupStreamUrl": {
+          "type": "string",
+          "description": "Backup Server 2 HLS stream URL.",
+          "maxLength": 2048
+        },
+        "server3StreamUrl": {
+          "type": "string",
+          "description": "Backup Server 3 HLS stream URL.",
+          "maxLength": 2048
+        },
+        "status": {
+          "type": "string",
+          "enum": ["online", "offline", "checking"],
+          "description": "Operational status of the channel."
+        },
+        "isLive": {
+          "type": "boolean",
+          "description": "Whether to show the LIVE badge."
+        },
+        "sortOrder": {
+          "type": "number",
+          "description": "Display ordering index."
+        },
+        "deleted": {
+          "type": "boolean",
+          "description": "Soft-delete flag for built-in default channels."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "UID of the admin who created the channel.",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "category",
+        "logo",
+        "streamUrl",
+        "status",
+        "isLive",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized admin profile record.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin"]
+        }
+      },
+      "required": ["uid", "email", "role"]
+    }
+  },
+  "firestore": {
+    "/channels/{channelId}": {
+      "schema": { "$ref": "#/entities/Channel" },
+      "description": "Permanent cloud storage of TV and sports channels managed by admin."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Authorized admin users allowed to manage channels."
+    }
+  }
+}

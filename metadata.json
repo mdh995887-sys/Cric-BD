@@ -1,0 +1,6 @@
+{
+  "name": "Cric BD - Live Sports TV & Hub",
+  "description": "Immersive Live Sports TV & Streaming Hub featuring Live Cricket Channels, BPL, Football Arena, Ball-by-Ball Live Scores, Schedule, and AI Match Analyst.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
